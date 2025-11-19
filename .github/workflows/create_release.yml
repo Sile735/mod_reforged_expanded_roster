@@ -19,10 +19,10 @@ jobs:
           # Remove .git directory from archive
           rm -rf .git
           # Create ZIP with flat structure using version tag
-          zip -r "mod_crafting_expansion_reforged-${{ github.event.release.tag_name }}.zip" . -x '*.git*'
+          zip -r "mod_expanded_roster_reforged-${{ github.event.release.tag_name }}.zip" . -x '*.git*'
       - name: Upload to Release
         uses: ncipollo/release-action@v1.12.0
         with:
-          artifacts: "mod_crafting_expansion_reforged-${{ github.event.release.tag_name }}.zip"
+          artifacts: "mod_expanded_roster_reforged-${{ github.event.release.tag_name }}.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
