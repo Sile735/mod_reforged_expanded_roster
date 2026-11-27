@@ -1,6 +1,7 @@
-
+// Squirrel hooks
 ::include("mod_er/hooks/asset_manager.nut");
 
+// UI: the character screen gets 36 formation slots (two rows of reserves) and a matching background
 local function registerJS( _file )
 {
 	::Hooks.registerJS("ui/mods/er/" + _file);
@@ -16,4 +17,3 @@ registerCSS("character_screen.css");
 registerCSS("character_screen_brothers_list_module.css");
 registerCSS("character_screen_stats_module.css");
 registerCSS("character_screen_skills_module.css");
-

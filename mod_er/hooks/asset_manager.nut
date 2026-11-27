@@ -1,48 +1,51 @@
-::ER.HookMod.hook("scripts/states/world/asset_manager", function(q){
-	::logInfo("MOD_ER: increasing max roster size to 30");
-	q.m.BrothersMax = 30;
-	
-	q.resetToDefaults = @( __original ) function() {
-		__original();
-		q.m.BrothersMax = 30;
-		this.m.BrothersMax = 30;
-	}
+// Roster size and formation slots.
+// Vanilla allows 20 brothers and hardcodes 27 formation slots (18 battle + 9 reserve) in getFormation and
+// updateFormation, so both are reimplemented here with ::ER.FormationSlots (36 = 18 battle + 18 reserve).
+// The number of brothers allowed in battle (BrothersMaxInCombat) is unchanged.
+::ER.HookMod.hook("scripts/states/world/asset_manager", function(q) {
+	q.m.BrothersMax = ::ER.RosterMax;
 
-	/* needs to be fully reimplemented as the original function hardcodes a max slot size of 27*/
-	q.getFormation = @( ) function()
+	// Vanilla resets BrothersMax to 20 when a new campaign starts
+	q.resetToDefaults = @(__original) { function resetToDefaults()
+	{
+		__original();
+		this.m.BrothersMax = ::ER.RosterMax;
+	}}.resetToDefaults;
+
+	// Copy of vanilla with ::ER.FormationSlots instead of the hardcoded 27
+	q.getFormation = @() { function getFormation()
 	{
 		local ret = [];
-		ret.resize(36, null); // this is hardcoded in vanilla at 27
-		local roster = this.World.getPlayerRoster().getAll();
+		ret.resize(::ER.FormationSlots, null);
 
-		foreach( b in roster )
+		foreach (b in ::World.getPlayerRoster().getAll())
 		{
 			ret[b.getPlaceInFormation()] = b;
 		}
 
 		return ret;
-	}
+	}}.getFormation;
 
-	/* needs to be fully reimplemented as the original function hardcodes a max slot size of 27*/
-	q.updateFormation = @( ) function( considerMaxBros = false )
+	// Copy of vanilla with ::ER.FormationSlots instead of the hardcoded 27:
+	// keeps everyone on a free slot, puts brothers without a valid slot on the first free one
+	// (battle slots first while there is room for more brothers in battle) and keeps at least one in battle.
+	q.updateFormation = @() { function updateFormation( considerMaxBros = false )
 	{
 		local NOT_IN_FORMATION = 255;
 		local formation = [];
-		formation.resize(36, false); // this is hardcoded in vanilla at 27
-		local roster = this.World.getPlayerRoster().getAll();
+		formation.resize(::ER.FormationSlots, false);
+		local roster = ::World.getPlayerRoster().getAll();
 		local hasUnplaced = false;
 		local inCombat = 0;
 
-		foreach( b in roster )
+		foreach (b in roster)
 		{
-			if (b.getPlaceInFormation() != NOT_IN_FORMATION && formation[b.getPlaceInFormation()] == false && (!considerMaxBros || inCombat < this.m.BrothersMaxInCombat))
+			local slot = b.getPlaceInFormation();
+			if (slot != NOT_IN_FORMATION && formation[slot] == false && (!considerMaxBros || inCombat < this.m.BrothersMaxInCombat))
 			{
-				formation[b.getPlaceInFormation()] = true;
-
-				if (b.getPlaceInFormation() <= 17)
-				{
-					inCombat = ++inCombat;
-				}
+				formation[slot] = true;
+				if (slot < ::ER.FirstReserveSlot)
+					inCombat++;
 			}
 			else
 			{
@@ -53,47 +56,31 @@
 
 		if (hasUnplaced)
 		{
-			foreach( b in roster )
+			foreach (b in roster)
 			{
 				if (b.getPlaceInFormation() != NOT_IN_FORMATION)
-				{
 					continue;
-				}
 
-				local i = 0;
-
-				if (inCombat >= this.m.BrothersMaxInCombat)
-				{
-					i = 18;
-				}
-
-				while (i != formation.len())
+				// battle formation full -> start searching in the reserves
+				local i = inCombat >= this.m.BrothersMaxInCombat ? ::ER.FirstReserveSlot : 0;
+				for (; i < formation.len(); i++)
 				{
 					if (formation[i] == false)
 					{
 						b.setPlaceInFormation(i);
 						formation[i] = true;
-
-						if (i <= 17)
-						{
-							inCombat = ++inCombat;
-						}
-
+						if (i < ::ER.FirstReserveSlot)
+							inCombat++;
 						break;
 					}
-
-					i = ++i;
 				}
 			}
 		}
 
-		if (inCombat == 0)
+		// Nobody in battle formation: put the first brother on slot 3 (vanilla behavior)
+		if (inCombat == 0 && roster.len() != 0)
 		{
-			foreach( b in roster )
-			{
-				b.setPlaceInFormation(3);
-				break;
-			}
+			roster[0].setPlaceInFormation(3);
 		}
-	}
-})
+	}}.updateFormation;
+});
